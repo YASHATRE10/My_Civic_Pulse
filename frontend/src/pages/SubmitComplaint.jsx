@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { COMPLAINT_CATEGORIES } from '../utils/constants';
 import Toast from '../components/Toast';
@@ -7,7 +7,39 @@ import Toast from '../components/Toast';
 export default function SubmitComplaint() {
   const [preview, setPreview] = useState('');
   const [toast, setToast] = useState({ message: '', type: 'success' });
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm();
+  const [locationStatus, setLocationStatus] = useState('idle');
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm();
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('unsupported');
+      setToast({ message: 'Geolocation is not supported on this device', type: 'error' });
+      return;
+    }
+
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const deviceLocation = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setValue('location', deviceLocation, { shouldValidate: true, shouldDirty: true });
+        setLocationStatus('success');
+      },
+      () => {
+        setLocationStatus('error');
+        setToast({ message: 'Unable to detect location. Please enable location permission.', type: 'error' });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  useEffect(() => {
+    detectLocation();
+  }, []);
 
   const onSubmit = async (values) => {
     try {
@@ -23,6 +55,7 @@ export default function SubmitComplaint() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       reset();
+      detectLocation();
       setPreview('');
       setToast({ message: 'Complaint submitted successfully', type: 'success' });
     } catch (err) {
@@ -45,7 +78,20 @@ export default function SubmitComplaint() {
           <select className="rounded-xl border border-slate-200 px-4 py-3" {...register('category', { required: true })}>
             {COMPLAINT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat.replace('_', ' ')}</option>)}
           </select>
-          <input className="rounded-xl border border-slate-200 px-4 py-3" placeholder="Location" {...register('location', { required: true })} />
+          <div className="space-y-2">
+            <input
+              className="w-full rounded-xl border border-slate-200 px-4 py-3"
+              placeholder={locationStatus === 'loading' ? 'Detecting your location...' : 'Location'}
+              {...register('location', { required: true })}
+            />
+            <button
+              type="button"
+              onClick={detectLocation}
+              className="text-xs text-primary font-medium"
+            >
+              {locationStatus === 'loading' ? 'Detecting location...' : 'Use my current location'}
+            </button>
+          </div>
         </div>
         <input
           type="file"
