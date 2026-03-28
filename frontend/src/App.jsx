@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import LandingPage from './pages/LandingPage';
 import CitizenDashboard from './pages/CitizenDashboard';
 import SubmitComplaint from './pages/SubmitComplaint';
 import MyComplaints from './pages/MyComplaints';
@@ -63,11 +64,12 @@ function Layout({ children }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/dashboard" element={<RoleRedirect />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/" element={<RoleRedirect />} />
 
       <Route
         path="/citizen"
