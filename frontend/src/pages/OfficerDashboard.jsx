@@ -143,11 +143,11 @@ export default function OfficerDashboard() {
 
 function MetricCard({ title, value, icon, tone }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white/75 p-3">
-      <p className="text-xs uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
-        {icon} {title}
+    <div className="rounded-xl border border-slate-200 bg-white/75 p-3 dark:border-slate-700/70 dark:bg-slate-900/60">
+      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300 inline-flex items-center gap-1">
+        <span className="text-primary dark:text-sky-400">{icon}</span> {title}
       </p>
-      <p className={`text-2xl font-semibold mt-2 ${tone}`}>{value}</p>
+      <p className={`text-2xl font-semibold mt-2 ${tone} dark:text-slate-50`}>{value}</p>
     </div>
   );
 }
