@@ -9,7 +9,9 @@
     "loading": "Loading...",
     "refresh": "Refresh",
     "retry": "Retry",
-    "view": "View"
+    "view": "View",
+    "clear": "Clear",
+    "success": "Success"
   },
   "navbar": {
     "tagline": "Smart City Grievance Portal",
@@ -229,9 +231,19 @@
       "selectOfficer": "Select officer",
       "assignButton": "Assign",
       "assignDisabled": "Cannot reassign resolved complaints",
+      "unassign": "Unassign officer",
+      "deadlineRequired": "Deadline is required",
+      "deadlineTodayOrLater": "Deadline must be today or later",
+      "deadlineBeforeSubmission": "Deadline cannot be before complaint submission date",
       "low": "Low",
       "medium": "Medium",
       "high": "High"
+    }
+    ,
+    "officers": {
+      "pendingTitle": "Pending Officer Approvals",
+      "noPending": "No pending officer registrations.",
+      "approveButton": "Approve"
     }
   },
   "officerDashboard": {
@@ -265,7 +277,8 @@
     "validation": {
       "titleRequired": "Title is required",
       "descriptionRequired": "Description is required",
-      "locationRequired": "Area/Address is required"
+      "locationRequired": "Area/Address is required",
+      "imageRequired": "Please attach an image"
     }
   },
   "feedbackPage": {

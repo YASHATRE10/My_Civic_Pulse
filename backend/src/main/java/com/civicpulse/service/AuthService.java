@@ -47,6 +47,13 @@ public class AuthService {
             throw new IllegalArgumentException("Admin registration is not allowed");
         }
 
+        // Officers must be approved by an admin before they can login
+        if (user.getRole() == Role.OFFICER) {
+            user.setApproved(Boolean.FALSE);
+        } else {
+            user.setApproved(Boolean.TRUE);
+        }
+
         userRepository.save(user);
     }
 
@@ -58,10 +65,15 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
+        // Prevent unapproved officers from logging in
+        if (user.getRole() == Role.OFFICER && !Boolean.TRUE.equals(user.getApproved())) {
+            throw new IllegalArgumentException("Officer account awaiting admin approval");
+        }
+
         String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
         return new AuthResponse(
-                token,
-                new AuthResponse.UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.getPhone())
+            token,
+            new AuthResponse.UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.getPhone(), Boolean.TRUE.equals(user.getApproved()))
         );
     }
 

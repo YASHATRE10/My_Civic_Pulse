@@ -21,6 +21,7 @@ export default function AdminDashboard({ chartOnly = false }) {
   const { t } = useTranslation();
   const [complaints, setComplaints] = useState([]);
   const [officers, setOfficers] = useState([]);
+  const [pendingOfficers, setPendingOfficers] = useState([]);
   const [reports, setReports] = useState({ categories: [], monthly: [], sla: [] });
   const [filters, setFilters] = useState({ search: '', status: 'ALL' });
   const [loading, setLoading] = useState(true);
@@ -30,15 +31,18 @@ export default function AdminDashboard({ chartOnly = false }) {
     setLoading(true);
     setError('');
     try {
-      const [complaintsRes, usersRes, categoriesRes, monthlyRes, slaRes] = await Promise.all([
+      const [complaintsRes, usersRes, pendingRes, categoriesRes, monthlyRes, slaRes] = await Promise.all([
         api.get('/complaints'),
         api.get('/auth/users'),
+        api.get('/auth/officers/pending'),
         api.get('/reports/categories'),
         api.get('/reports/monthly'),
         api.get('/reports/sla')
       ]);
       setComplaints(complaintsRes.data);
-      setOfficers(usersRes.data.filter((u) => u.role === 'OFFICER'));
+      // only approved officers for assignment
+      setOfficers(usersRes.data.filter((u) => u.role === 'OFFICER' && u.approved));
+      setPendingOfficers(pendingRes.data || []);
       setReports({
         categories: categoriesRes.data,
         monthly: monthlyRes.data,
@@ -55,14 +59,30 @@ export default function AdminDashboard({ chartOnly = false }) {
     loadData();
   }, []);
 
-  const assignComplaint = async (complaintId, officerId, priority) => {
-    await api.put('/complaints/assign', {
-      complaintId,
-      officerId: Number(officerId),
-      priority,
-      deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    });
-    loadData();
+  const assignComplaint = async (complaintId, officerId, deadline, onSuccess) => {
+    try {
+      if (!deadline) {
+        throw new Error(t('adminDashboard.manage.deadlineRequired'));
+      }
+      await api.put('/complaints/assign', {
+        complaintId,
+        officerId: Number(officerId),
+        deadline
+      });
+      loadData();
+      onSuccess?.();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to assign complaint');
+    }
+  };
+
+  const approveOfficer = async (id) => {
+    try {
+      await api.post(`/auth/officers/${id}/approve`);
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to approve officer');
+    }
   };
 
   const filteredComplaints = useMemo(() => {
@@ -143,6 +163,26 @@ export default function AdminDashboard({ chartOnly = false }) {
             ))}
           </div>
         </div>
+        <div className="glass rounded-2xl p-4 shadow-card">
+          <h3 className="font-semibold mb-4">{t('adminDashboard.officers.pendingTitle')}</h3>
+          {pendingOfficers.length === 0 ? (
+            <p className="text-sm text-slate-500">{t('adminDashboard.officers.noPending')}</p>
+          ) : (
+            <ul className="space-y-3">
+              {pendingOfficers.map((o) => (
+                <li key={o.id} className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{o.name}</div>
+                    <div className="text-xs text-slate-500">{o.email} • {o.phone}</div>
+                  </div>
+                  <div>
+                    <button onClick={() => approveOfficer(o.id)} className="px-3 py-1 rounded-lg bg-emerald-600 text-white">{t('adminDashboard.officers.approveButton')}</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {!chartOnly && (
@@ -190,29 +230,163 @@ export default function AdminDashboard({ chartOnly = false }) {
 function AdminRow({ complaint, officers, onAssign }) {
   const { t } = useTranslation();
   const [officerId, setOfficerId] = useState(complaint.assignedOfficerId || '');
-  const [priority, setPriority] = useState(complaint.priority || 'MEDIUM');
+  const [deadline, setDeadline] = useState(complaint.deadline || '');
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  // Update local state when complaint data changes
+  useEffect(() => {
+    setOfficerId(complaint.assignedOfficerId || '');
+    setDeadline(complaint.deadline || '');
+    setSuccess(false);
+  }, [complaint.assignedOfficerId, complaint.deadline]);
+
+  const handleAssign = async () => {
+    if (!officerId) return;
+    if (!deadline) {
+      setError(t('adminDashboard.manage.deadlineRequired'));
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    
+    // Validate deadline is not before submission date
+    if (deadline) {
+      const deadlineDate = new Date(deadline);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (deadlineDate < today) {
+        setError(t('adminDashboard.manage.deadlineTodayOrLater') || 'Deadline must be today or later');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+    }
+    
+    setIsLoading(true);
+    setError('');
+    try {
+      await onAssign(complaint.id, officerId, deadline, () => {
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2000);
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to assign');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUnassign = () => {
+    setOfficerId('');
+    setDeadline('');
+  };
+
+  const assignedOfficer = officers.find(o => o.id === complaint.assignedOfficerId)?.name;
+  const isResolved = complaint.status === 'RESOLVED';
+  
+  // Format submission date for min attribute (YYYY-MM-DD)
+  const minDate = new Date().toISOString().split('T')[0];
 
   return (
-    <tr className="border-b last:border-b-0">
-      <td className="py-3">#{complaint.id}</td>
-      <td>{complaint.title}</td>
-      <td>{t(`status.${complaint.status}`, { defaultValue: complaint.status.replace('_', ' ') })}</td>
-      <td>{new Date(complaint.submissionDate).toLocaleDateString()}</td>
-      <td>
-        <select className="rounded-lg border px-2 py-1" value={officerId} onChange={(e) => setOfficerId(e.target.value)}>
-          <option value="">{t('adminDashboard.manage.selectOfficer')}</option>
-          {officers.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-        </select>
+    <tr className="border-b last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-900 transition">
+      <td className="py-3 px-2">#{complaint.id}</td>
+      <td className="px-2 truncate max-w-xs">{complaint.title}</td>
+      <td className="px-2">
+        <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+          complaint.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
+          complaint.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+          complaint.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {t(`status.${complaint.status}`, { defaultValue: complaint.status.replace('_', ' ') })}
+        </span>
       </td>
-      <td>
-        <select className="rounded-lg border px-2 py-1" value={priority} onChange={(e) => setPriority(e.target.value)}>
-          <option value="LOW">{t('adminDashboard.manage.low')}</option>
-          <option value="MEDIUM">{t('adminDashboard.manage.medium')}</option>
-          <option value="HIGH">{t('adminDashboard.manage.high')}</option>
-        </select>
+      <td className="px-2 text-sm">{new Date(complaint.submissionDate).toLocaleDateString()}</td>
+      
+      {/* Officer Assignment Column */}
+      <td className="px-2">
+        {assignedOfficer ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">
+              ✓ {assignedOfficer}
+            </span>
+            {!isResolved && (
+              <button 
+                onClick={handleUnassign}
+                className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition"
+                title={t('adminDashboard.manage.unassign')}
+              >
+                {t('common.clear')}
+              </button>
+            )}
+          </div>
+        ) : (
+          <select 
+            className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            value={officerId} 
+            onChange={(e) => setOfficerId(e.target.value)}
+            disabled={isLoading || isResolved}
+          >
+            <option value="">{t('adminDashboard.manage.selectOfficer')}</option>
+            {officers.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        )}
       </td>
-      <td>
-        <button disabled={!officerId || complaint.status === 'RESOLVED'} onClick={() => onAssign(complaint.id, officerId, priority)} className="px-3 py-1 rounded-lg bg-primary text-white disabled:opacity-50" title={complaint.status === 'RESOLVED' ? t('adminDashboard.manage.assignDisabled') : ''}>{t('adminDashboard.manage.assignButton')}</button>
+      
+      {/* Priority Column */}
+      <td className="px-2">
+        <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${
+          complaint.priority === 'HIGH' ? 'bg-red-100 text-red-800' :
+          complaint.priority === 'MEDIUM' ? 'bg-orange-100 text-orange-800' :
+          'bg-green-100 text-green-800'
+        }`}>
+          {complaint.priority}
+        </span>
+      </td>
+      
+      {/* Action Column */}
+      <td className="px-2">
+        {!assignedOfficer && !isResolved && (
+          <div className="flex gap-1 flex-wrap items-center">
+            <input 
+              type="date" 
+              min={minDate}
+              className="rounded-lg border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              disabled={isLoading}
+              title={t('adminDashboard.manage.deadlineTodayOrLater') || 'Deadline must be today or later'}
+            />
+            <button 
+              disabled={!officerId || !deadline || isLoading}
+              onClick={handleAssign}
+              className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition whitespace-nowrap"
+              title={!officerId ? t('adminDashboard.manage.selectOfficer') : !deadline ? t('adminDashboard.manage.deadlineRequired') : ''}
+            >
+              {isLoading ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="animate-spin">⟳</span> {t('common.loading')}
+                </span>
+              ) : (
+                t('adminDashboard.manage.assignButton')
+              )}
+            </button>
+          </div>
+        )}
+        {isResolved && (
+          <span className="text-xs text-gray-500 italic">{t('adminDashboard.manage.assignDisabled')}</span>
+        )}
+        {success && (
+          <div className="text-green-600 text-xs font-semibold animate-pulse mt-1">
+            ✓ {t('common.success')}
+          </div>
+        )}
+        {error && (
+          <div className="text-red-600 text-xs font-semibold mt-1">
+            ✗ {error}
+          </div>
+        )}
       </td>
     </tr>
   );

@@ -24,4 +24,7 @@ public class User {
     private Role role;
 
     private String phone;
+    
+    @Column
+    private Boolean approved = true;
 }

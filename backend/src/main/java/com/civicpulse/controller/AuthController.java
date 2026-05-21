@@ -55,9 +55,31 @@ public class AuthController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AuthResponse.UserView>> users() {
         var users = userRepository.findAll().stream()
-                .filter(u -> u.getRole() != Role.ADMIN)
-                .map(u -> new AuthResponse.UserView(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.getPhone()))
-                .toList();
+            .filter(u -> u.getRole() != Role.ADMIN)
+            .map(u -> new AuthResponse.UserView(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.getPhone(), Boolean.TRUE.equals(u.getApproved())))
+            .toList();
         return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/officers/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AuthResponse.UserView>> pendingOfficers() {
+        var officers = userRepository.findByRole(Role.OFFICER).stream()
+            .filter(u -> !Boolean.TRUE.equals(u.getApproved()))
+            .map(u -> new AuthResponse.UserView(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.getPhone(), Boolean.TRUE.equals(u.getApproved())))
+            .toList();
+        return ResponseEntity.ok(officers);
+    }
+
+    @PostMapping("/officers/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> approveOfficer(@PathVariable Long id) {
+        var user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (user.getRole() != Role.OFFICER) {
+            throw new IllegalArgumentException("User is not an officer");
+        }
+        user.setApproved(Boolean.TRUE);
+        userRepository.save(user);
+        return ResponseEntity.ok(Map.of("message", "Officer approved"));
     }
 }

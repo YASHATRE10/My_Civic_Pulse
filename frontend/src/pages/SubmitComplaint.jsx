@@ -130,7 +130,7 @@ export default function SubmitComplaint() {
           type="file"
           accept="image/*"
           className="w-full rounded-xl border border-slate-200 px-4 py-3"
-          {...register('image')}
+          {...register('image', { required: t('submitComplaint.validation.imageRequired') })}
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
@@ -138,6 +138,7 @@ export default function SubmitComplaint() {
             }
           }}
         />
+        {errors.image && <p className="text-xs text-rose-600 -mt-2">{errors.image.message}</p>}
         {preview && <img src={preview} alt="preview" className="h-36 rounded-xl object-cover" />}
         <button disabled={isSubmitting} className="rounded-xl bg-primary text-white px-6 py-3">
           {isSubmitting ? t('submitComplaint.submitting') : t('submitComplaint.submit')}

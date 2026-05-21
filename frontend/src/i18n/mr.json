@@ -9,7 +9,9 @@
     "loading": "लोड होत आहे...",
     "refresh": "रीफ्रेश",
     "retry": "पुन्हा प्रयत्न करा",
-    "view": "पहा"
+    "view": "पहा",
+    "clear": "साफ करा",
+    "success": "यशस्वी"
   },
   "navbar": {
     "tagline": "स्मार्ट सिटी तक्रार पोर्टल",
@@ -229,6 +231,10 @@
       "selectOfficer": "अधिकारी निवडा",
       "assignButton": "असाइन",
       "assignDisabled": "निकाली निघालेल्या तक्रारी पुन्हा असाइन करता येत नाहीत",
+      "unassign": "अधिकारी असाइन काढून टाका",
+      "deadlineRequired": "अंतिम तारीख आवश्यक आहे",
+      "deadlineTodayOrLater": "अंतिम तारीख आज किंवा त्यानंतरची असावी",
+      "deadlineBeforeSubmission": "अंतिम तारीख तक्रार जमा केल्याच्या तारखेपूर्वी असू शकत नाही",
       "low": "कमी",
       "medium": "मध्यम",
       "high": "उच्च"
@@ -265,7 +271,8 @@
     "validation": {
       "titleRequired": "शीर्षक आवश्यक आहे",
       "descriptionRequired": "वर्णन आवश्यक आहे",
-      "locationRequired": "परिसर/पत्ता आवश्यक आहे"
+      "locationRequired": "परिसर/पत्ता आवश्यक आहे",
+      "imageRequired": "कृपया एक प्रतिमा जोडा"
     }
   },
   "feedbackPage": {

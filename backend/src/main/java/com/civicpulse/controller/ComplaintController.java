@@ -22,14 +22,14 @@ public class ComplaintController {
 
     private final ComplaintService complaintService;
 
-    @PostMapping
+        @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CITIZEN')")
     public ResponseEntity<ComplaintResponse> createComplaint(
             @RequestParam String title,
             @RequestParam String description,
             @RequestParam Category category,
             @RequestParam String location,
-            @RequestParam(required = false) MultipartFile image,
+            @RequestParam MultipartFile image,
             Authentication authentication
     ) {
         return ResponseEntity.ok(complaintService.createComplaint(
